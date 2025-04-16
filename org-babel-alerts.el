@@ -1,4 +1,4 @@
-;;; ob-babel-alerts.el --- Alerts for org-babel code blocks -*- lexical-binding: t; -*-
+;;; org-babel-alerts.el --- Alerts for org-babel code blocks -*- lexical-binding: t; -*-
 ;;
 ;; Copyright (C) 2024
 ;;
@@ -8,7 +8,7 @@
 ;; Modified: October 28, 2024
 ;; Version: 0.0.1
 ;; Keywords: org babel alerts convenience
-;; Homepage: https://github.com/elle/ob-babel-alerts
+;; Homepage: https://github.com/elle/org-babel-alerts
 ;; Package-Requires: ((emacs "24.3"))
 ;;
 ;; This file is not part of GNU Emacs.
@@ -25,12 +25,12 @@
 ;;; Code:
 
 ;;;; Customization
-(defgroup ob-babel-alerts nil
+(defgroup org-babel-alerts nil
   "Customization options for org-babel alerts."
   :group 'org-babel
-  :prefix "ob-babel-alerts/")
+  :prefix "org-babel-alerts/")
 
-(defcustom ob-babel-alerts/notification-command "notify-send -i emacs \"Org Block Finished\" \"Block in %b (%l in %f) completed with result: %r\""
+(defcustom org-babel-alerts/notification-command "notify-send -i emacs \"Org Block Finished\" \"Block in %b (%l in %f) completed with result: %r\""
   "Command to run when a code block finishes.
 Special format specifiers:
 %b - buffer name
@@ -38,27 +38,27 @@ Special format specifiers:
 %r - result content (or empty if no result)
 %l - line number"
   :type 'string
-  :group 'ob-babel-alerts)
+  :group 'org-babel-alerts)
 
-(defcustom ob-babel-alerts/long-running-threshold 10
+(defcustom org-babel-alerts/long-running-threshold 10
   "Threshold in seconds for considering a block as long-running."
   :type 'integer
-  :group 'ob-babel-alerts)
+  :group 'org-babel-alerts)
 
 ;;;; Alerts
 (require 'doom-keybinds)
 
 
-(define-derived-mode ob-babel-alerts/cell-alerts-mode special-mode "Block Alerts"
+(define-derived-mode org-babel-alerts/cell-alerts-mode special-mode "Block Alerts"
   "Major mode for displaying code block completion alerts.")
 
-(defun ob-babel-alerts/format-notification-command (buffer-name buffer-file line-number result-content)
+(defun org-babel-alerts/format-notification-command (buffer-name buffer-file line-number result-content)
   "Format the notification command with the given parameters.
 BUFFER-NAME is the name of the buffer.
 BUFFER-FILE is the file path of the buffer.
 LINE-NUMBER is the line number of the code block.
 RESULT-CONTENT is the content of the results block."
-  (let ((cmd ob-babel-alerts/notification-command)
+  (let ((cmd org-babel-alerts/notification-command)
         (result-summary (if result-content
                             (if (> (length result-content) 100)
                                 (concat (substring result-content 0 97) "...")
@@ -76,7 +76,7 @@ RESULT-CONTENT is the content of the results block."
                                         cmd))
     cmd))
 
-(defun ob-babel-alerts/block-finished-alert (&optional result-content)
+(defun org-babel-alerts/block-finished-alert (&optional result-content)
   "Create an alert with an Emacs-native clickable link in a pop-up buffer when a code block finishes.
 Optional RESULT-CONTENT is the content of the results block to display in the alert."
   (let* ((buffer-name (buffer-name))
@@ -86,12 +86,12 @@ Optional RESULT-CONTENT is the content of the results block to display in the al
                         (format "%s:%d" buffer-file line-number)
                       buffer-name))
          (alerts-buffer-name "*Block Completion Alerts*")
-         (notification-cmd (ob-babel-alerts/format-notification-command 
+         (notification-cmd (org-babel-alerts/format-notification-command
                             buffer-name buffer-file line-number result-content)))
 
     (with-current-buffer (get-buffer-create alerts-buffer-name)
-      (unless (eq major-mode 'ob-babel-alerts/cell-alerts-mode)
-        (ob-babel-alerts/cell-alerts-mode))
+      (unless (eq major-mode 'org-babel-alerts/cell-alerts-mode)
+        (org-babel-alerts/cell-alerts-mode))
       (let ((inhibit-read-only t))
         (goto-char (point-max))
         (let ((start (point)))
@@ -118,15 +118,15 @@ Optional RESULT-CONTENT is the content of the results block to display in the al
   (message "Finished code block!"))
 
 ;; Doom Emacs specific configuration
-(add-to-list 'evil-escape-excluded-major-modes 'ob-babel-alerts/cell-alerts-mode)
-(evil-set-initial-state 'ob-babel-alerts/cell-alerts-mode 'normal)
+(add-to-list 'evil-escape-excluded-major-modes 'org-babel-alerts/cell-alerts-mode)
+(evil-set-initial-state 'org-babel-alerts/cell-alerts-mode 'normal)
 
-(map! :map ob-babel-alerts/cell-alerts-mode-map
+(map! :map org-babel-alerts/cell-alerts-mode-map
       :n "q" #'quit-window
       :n [escape] #'quit-window)
 
 ;; Function to close the alerts buffer
-(defun ob-babel-alerts/close-alerts-buffer ()
+(defun org-babel-alerts/close-alerts-buffer ()
   "Close the Block Completion Alerts buffer from anywhere."
   (interactive)
   (when-let ((buffer (get-buffer "*Block Completion Alerts*")))
@@ -137,7 +137,7 @@ Optional RESULT-CONTENT is the content of the results block to display in the al
 (defadvice! my-universal-esc-handler (&rest _)
   :before #'keyboard-quit
   (when (get-buffer-window "*Block Completion Alerts*" t)
-    (ob-babel-alerts/close-alerts-buffer)))
+    (org-babel-alerts/close-alerts-buffer)))
 
 ;; Set up the display rules for the alerts buffer
 (set-popup-rule! "^\\*Block Completion Alerts\\*$"
@@ -148,7 +148,7 @@ Optional RESULT-CONTENT is the content of the results block to display in the al
 
 ;;;;; Alerts for long running blocks
 
-(defun ob-babel-alerts/notify-if-took-a-while (alert-threshold result-content)
+(defun org-babel-alerts/notify-if-took-a-while (alert-threshold result-content)
   "Notify if block execution took longer than ALERT-THRESHOLD seconds.
 RESULT-CONTENT is the content to display in the notification."
   (interactive)
@@ -171,7 +171,7 @@ RESULT-CONTENT is the content to display in the notification."
         (message "No results block found.")
         nil))))
 
-(defun ob-babel-alerts/extract-result-content (results-start results-end)
+(defun org-babel-alerts/extract-result-content (results-start results-end)
   "Extract the content of a results block between RESULTS-START and RESULTS-END.
 Strips away the #+RESULTS:, #+BEGIN_*, #+END_*, :RESULTS:, :result:, and :END: markers."
   (when (and results-start results-end)
@@ -211,7 +211,7 @@ Strips away the #+RESULTS:, #+BEGIN_*, #+END_*, :RESULTS:, :result:, and :END: m
         ;; Trim whitespace
         (string-trim content)))))
 
-(defun ob-babel-alerts/org-src-block-results-end (src-block)
+(defun org-babel-alerts/org-src-block-results-end (src-block)
   "Find the end position of results for SRC-BLOCK."
   (save-excursion
     (goto-char (org-element-property :begin src-block))
@@ -228,12 +228,12 @@ Strips away the #+RESULTS:, #+BEGIN_*, #+END_*, :RESULTS:, :result:, and :END: m
                 (org-babel-result-end)))
           (point-max))))))
 
-(defun ob-babel-alerts/alert-advice-after-org-babel-results (orig-fun params &rest args)
+(defun org-babel-alerts/alert-advice-after-org-babel-results (orig-fun params &rest args)
   (let* ((options (nth 2 (car args)))
          (alert-finish (if (string= "yes" (cdr (assq :alert options))) t nil))
          (src-block (org-element-at-point))
          (results-start (org-babel-where-is-src-block-result))
-         (results-end (ob-babel-alerts/org-src-block-results-end src-block))
+         (results-end (org-babel-alerts/org-src-block-results-end src-block))
          (result-content nil))
 
     (when results-start
@@ -243,23 +243,23 @@ Strips away the #+RESULTS:, #+BEGIN_*, #+END_*, :RESULTS:, :result:, and :END: m
             ()
           (progn
             ;; Extract the content from the results block
-            (setq result-content (ob-babel-alerts/extract-result-content results-start results-end))
+            (setq result-content (org-babel-alerts/extract-result-content results-start results-end))
             
             ;; Only show one notification - either from explicit :alert or from long-running
             (if alert-finish
                 ;; User explicitly requested alert
-                (ob-babel-alerts/block-finished-alert result-content)
+                (org-babel-alerts/block-finished-alert result-content)
               ;; Check if it was a long-running block
-              (when (ob-babel-alerts/notify-if-took-a-while 
-                     ob-babel-alerts/long-running-threshold result-content)
-                (ob-babel-alerts/block-finished-alert result-content)))))))))
+              (when (org-babel-alerts/notify-if-took-a-while
+                     org-babel-alerts/long-running-threshold result-content)
+                (org-babel-alerts/block-finished-alert result-content)))))))))
 
 
-(advice-add 'org-babel-insert-result :after #'ob-babel-alerts/alert-advice-after-org-babel-results)
+(advice-add 'org-babel-insert-result :after #'org-babel-alerts/alert-advice-after-org-babel-results)
 ;; (setq debug-on-message "Code block evaluation complete\\.")
 
 
 
 
-(provide 'ob-babel-alerts)
-;;; ob-babel-alerts.el ends here
+(provide 'org-babel-alerts)
+;;; org-babel-alerts.el ends here
