@@ -30,7 +30,7 @@
   :group 'org-babel
   :prefix "ob-babel-alerts/")
 
-(defcustom ob-babel-alerts/notification-command "notify-send \"An org code block in %b finished!\" \"%r\""
+(defcustom ob-babel-alerts/notification-command "notify-send -i emacs \"Org Block Finished\" \"Block in %b completed with result: %r\""
   "Command to run when a code block finishes.
 Special format specifiers:
 %b - buffer name
@@ -38,6 +38,11 @@ Special format specifiers:
 %r - result content (or empty if no result)
 %l - line number"
   :type 'string
+  :group 'ob-babel-alerts)
+
+(defcustom ob-babel-alerts/long-running-threshold 10
+  "Threshold in seconds for considering a block as long-running."
+  :type 'integer
   :group 'ob-babel-alerts)
 
 ;;;; Alerts
@@ -53,16 +58,19 @@ BUFFER-NAME is the name of the buffer.
 BUFFER-FILE is the file path of the buffer.
 LINE-NUMBER is the line number of the code block.
 RESULT-CONTENT is the content of the results block."
-  (let ((cmd ob-babel-alerts/notification-command))
+  (let ((cmd ob-babel-alerts/notification-command)
+        (result-summary (if result-content
+                            (if (> (length result-content) 100)
+                                (concat (substring result-content 0 97) "...")
+                              result-content)
+                          "No result")))
     ;; Replace format specifiers
     (setq cmd (replace-regexp-in-string "%b" (shell-quote-argument buffer-name) cmd))
     (setq cmd (replace-regexp-in-string "%f" (if buffer-file 
                                                 (shell-quote-argument buffer-file) 
                                               "") cmd))
     (setq cmd (replace-regexp-in-string "%l" (number-to-string line-number) cmd))
-    (setq cmd (replace-regexp-in-string "%r" (if result-content 
-                                               (shell-quote-argument result-content) 
-                                             "") cmd))
+    (setq cmd (replace-regexp-in-string "%r" (shell-quote-argument result-summary) cmd))
     cmd))
 
 (defun ob-babel-alerts/block-finished-alert (&optional result-content)
@@ -238,7 +246,7 @@ Strips away the #+RESULTS:, #+BEGIN_*, #+END_*, :RESULTS:, :result:, and :END: m
             
             (when alert-finish
               (ob-babel-alerts/block-finished-alert result-content))
-            (ob-babel-alerts/notify-if-took-a-while 10)))))))
+            (ob-babel-alerts/notify-if-took-a-while ob-babel-alerts/long-running-threshold)))))))
 
 
 (advice-add 'org-babel-insert-result :after #'ob-babel-alerts/alert-advice-after-org-babel-results)
