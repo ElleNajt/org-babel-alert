@@ -31,8 +31,9 @@
 (define-derived-mode ob-babel-alerts/cell-alerts-mode special-mode "Block Alerts"
   "Major mode for displaying code block completion alerts.")
 
-(defun ob-babel-alerts/block-finished-alert ()
-  "Create an alert with an Emacs-native clickable link in a pop-up buffer when a code block finishes."
+(defun ob-babel-alerts/block-finished-alert (&optional result-content)
+  "Create an alert with an Emacs-native clickable link in a pop-up buffer when a code block finishes.
+Optional RESULT-CONTENT is the content of the results block to display in the alert."
   (let* ((buffer-name (buffer-name))
          (buffer-file (buffer-file-name))
          (line-number (line-number-at-pos))
@@ -50,7 +51,11 @@
           (insert "\n\n")
           (insert (format-time-string "[%Y-%m-%d %H:%M:%S]\n"))
           (insert "A code block finished at:\n")
-          (shell-command (format  "notify-send \"An org code block in %s finished!\"" buffer-name))
+          (shell-command (format "notify-send \"An org code block in %s finished!\"" buffer-name))
+          (when result-content
+            (insert "\nResult:\n")
+            (insert result-content)
+            (insert "\n"))
           (insert-text-button link-text
                               'action (lambda (_)
                                         (if buffer-file
@@ -116,10 +121,50 @@
                     (seconds (string-to-number (match-string 3))))
                 (+ (* hours 3600) (* minutes 60) seconds)
                 (if (>= seconds alert-threshold)
-                    (ob-babel-alerts/block-finished-alert)
+                    (ob-babel-alerts/block-finished-alert nil)
                   ()))))
         (message "No results block found.")
         nil))))
+
+(defun ob-babel-alerts/extract-result-content (results-start results-end)
+  "Extract the content of a results block between RESULTS-START and RESULTS-END.
+Strips away the #+RESULTS:, #+BEGIN_*, #+END_*, :RESULTS:, :result:, and :END: markers."
+  (when (and results-start results-end)
+    (save-excursion
+      (let ((content "")
+            (in-results nil))
+        (goto-char results-start)
+        (forward-line 1) ;; Skip the #+RESULTS: line
+        
+        ;; Check if we have a drawer or block
+        (cond
+         ;; Handle #+BEGIN_* ... #+END_* blocks
+         ((looking-at "^[ \t]*#\\+BEGIN_\\(.*\\)$")
+          (forward-line 1) ;; Skip the #+BEGIN line
+          (let ((begin-pos (point))
+                (end-regexp (format "^[ \t]*#\\+END_%s$" (match-string 1))))
+            (when (re-search-forward end-regexp results-end t)
+              (setq content (buffer-substring-no-properties 
+                             begin-pos (match-beginning 0))))))
+         
+         ;; Handle :RESULTS: ... :END: drawers
+         ((looking-at "^[ \t]*:RESULTS:")
+          (forward-line 1) ;; Skip the :RESULTS: line
+          (let ((begin-pos (point)))
+            (when (re-search-forward "^[ \t]*:END:" results-end t)
+              (setq content (buffer-substring-no-properties 
+                             begin-pos (match-beginning 0))))))
+         
+         ;; Handle plain results (no special delimiters)
+         (t
+          (let ((begin-pos (point)))
+            (setq content (buffer-substring-no-properties 
+                           begin-pos results-end)))))
+        
+        ;; Clean up the content - remove any :result: markers
+        (setq content (replace-regexp-in-string "^[ \t]*:result:[ \t]*" "" content))
+        ;; Trim whitespace
+        (string-trim content)))))
 
 (defun ob-babel-alerts/org-src-block-results-end (src-block)
   "Find the end position of results for SRC-BLOCK."
@@ -143,7 +188,8 @@
          (alert-finish (if (string= "yes" (cdr (assq :alert options))) t nil))
          (src-block (org-element-at-point))
          (results-start (org-babel-where-is-src-block-result))
-         (results-end (ob-babel-alerts/org-src-block-results-end src-block)))
+         (results-end (ob-babel-alerts/org-src-block-results-end src-block))
+         (result-content nil))
 
     (when results-start
       (save-excursion
@@ -151,8 +197,11 @@
         (if (re-search-forward "^[0-9a-f]\\{8\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{4\\}-[0-9a-f]\\{12\\}$" results-end t)
             ()
           (progn
+            ;; Extract the content from the results block
+            (setq result-content (ob-babel-alerts/extract-result-content results-start results-end))
+            
             (when alert-finish
-              (ob-babel-alerts/block-finished-alert))
+              (ob-babel-alerts/block-finished-alert result-content))
             (ob-babel-alerts/notify-if-took-a-while 10)))))))
 
 
