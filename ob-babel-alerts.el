@@ -24,12 +24,46 @@
 ;;
 ;;; Code:
 
+;;;; Customization
+(defgroup ob-babel-alerts nil
+  "Customization options for org-babel alerts."
+  :group 'org-babel
+  :prefix "ob-babel-alerts/")
+
+(defcustom ob-babel-alerts/notification-command "notify-send \"An org code block in %b finished!\" \"%r\""
+  "Command to run when a code block finishes.
+Special format specifiers:
+%b - buffer name
+%f - buffer file name (or empty if no file)
+%r - result content (or empty if no result)
+%l - line number"
+  :type 'string
+  :group 'ob-babel-alerts)
+
 ;;;; Alerts
 (require 'doom-keybinds)
 
 
 (define-derived-mode ob-babel-alerts/cell-alerts-mode special-mode "Block Alerts"
   "Major mode for displaying code block completion alerts.")
+
+(defun ob-babel-alerts/format-notification-command (buffer-name buffer-file line-number result-content)
+  "Format the notification command with the given parameters.
+BUFFER-NAME is the name of the buffer.
+BUFFER-FILE is the file path of the buffer.
+LINE-NUMBER is the line number of the code block.
+RESULT-CONTENT is the content of the results block."
+  (let ((cmd ob-babel-alerts/notification-command))
+    ;; Replace format specifiers
+    (setq cmd (replace-regexp-in-string "%b" (shell-quote-argument buffer-name) cmd))
+    (setq cmd (replace-regexp-in-string "%f" (if buffer-file 
+                                                (shell-quote-argument buffer-file) 
+                                              "") cmd))
+    (setq cmd (replace-regexp-in-string "%l" (number-to-string line-number) cmd))
+    (setq cmd (replace-regexp-in-string "%r" (if result-content 
+                                               (shell-quote-argument result-content) 
+                                             "") cmd))
+    cmd))
 
 (defun ob-babel-alerts/block-finished-alert (&optional result-content)
   "Create an alert with an Emacs-native clickable link in a pop-up buffer when a code block finishes.
@@ -40,7 +74,9 @@ Optional RESULT-CONTENT is the content of the results block to display in the al
          (link-text (if buffer-file
                         (format "%s:%d" buffer-file line-number)
                       buffer-name))
-         (alerts-buffer-name "*Block Completion Alerts*"))
+         (alerts-buffer-name "*Block Completion Alerts*")
+         (notification-cmd (ob-babel-alerts/format-notification-command 
+                            buffer-name buffer-file line-number result-content)))
 
     (with-current-buffer (get-buffer-create alerts-buffer-name)
       (unless (eq major-mode 'ob-babel-alerts/cell-alerts-mode)
@@ -51,7 +87,7 @@ Optional RESULT-CONTENT is the content of the results block to display in the al
           (insert "\n\n")
           (insert (format-time-string "[%Y-%m-%d %H:%M:%S]\n"))
           (insert "A code block finished at:\n")
-          (shell-command (format "notify-send \"An org code block in %s finished!\"" buffer-name))
+          (shell-command notification-cmd)
           (when result-content
             (insert "\nResult:\n")
             (insert result-content)
