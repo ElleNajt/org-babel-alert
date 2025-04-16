@@ -99,10 +99,6 @@ Optional RESULT-CONTENT is the content of the results block to display in the al
           (insert (format-time-string "[%Y-%m-%d %H:%M:%S]\n"))
           (insert "A code block finished at:\n")
           (shell-command notification-cmd)
-          (when result-content
-            (insert "\nResult:\n")
-            (insert result-content)
-            (insert "\n"))
           (insert-text-button link-text
                               'action (lambda (_)
                                         (if buffer-file
