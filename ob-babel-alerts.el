@@ -70,7 +70,10 @@ RESULT-CONTENT is the content of the results block."
                                                 (shell-quote-argument buffer-file) 
                                               "") cmd))
     (setq cmd (replace-regexp-in-string "%l" (number-to-string line-number) cmd))
-    (setq cmd (replace-regexp-in-string "%r" (shell-quote-argument result-summary) cmd))
+    (setq cmd (replace-regexp-in-string "%r" 
+                                        (replace-regexp-in-string "\\\\" "\\\\\\\\" 
+                                                                 (shell-quote-argument result-summary))
+                                        cmd))
     cmd))
 
 (defun ob-babel-alerts/block-finished-alert (&optional result-content)
