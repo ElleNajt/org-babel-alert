@@ -30,7 +30,7 @@
   :group 'org-babel
   :prefix "ob-babel-alerts/")
 
-(defcustom ob-babel-alerts/notification-command "notify-send -i emacs \"Org Block Finished\" \"Block in %b completed with result: %r\""
+(defcustom ob-babel-alerts/notification-command "notify-send -i emacs \"Org Block Finished\" \"Block in %b (%l in %f) completed with result: %r\""
   "Command to run when a code block finishes.
 Special format specifiers:
 %b - buffer name
@@ -67,12 +67,12 @@ RESULT-CONTENT is the content of the results block."
     ;; Replace format specifiers
     (setq cmd (replace-regexp-in-string "%b" (shell-quote-argument buffer-name) cmd))
     (setq cmd (replace-regexp-in-string "%f" (if buffer-file 
-                                                (shell-quote-argument buffer-file) 
-                                              "") cmd))
+                                                 (shell-quote-argument buffer-file) 
+                                               "") cmd))
     (setq cmd (replace-regexp-in-string "%l" (number-to-string line-number) cmd))
     (setq cmd (replace-regexp-in-string "%r" 
                                         (replace-regexp-in-string "\\\\" "\\\\\\\\" 
-                                                                 (shell-quote-argument result-summary))
+                                                                  (shell-quote-argument result-summary))
                                         cmd))
     cmd))
 
