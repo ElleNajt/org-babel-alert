@@ -148,8 +148,9 @@ Optional RESULT-CONTENT is the content of the results block to display in the al
 
 ;;;;; Alerts for long running blocks
 
-(defun ob-babel-alerts/notify-if-took-a-while (alert-threshold)
-  "Scan through a results block to find a 'Cell Timer:' line and parse the time in seconds."
+(defun ob-babel-alerts/notify-if-took-a-while (alert-threshold result-content)
+  "Notify if block execution took longer than ALERT-THRESHOLD seconds.
+RESULT-CONTENT is the content to display in the notification."
   (interactive)
   (save-excursion
     (let ((case-fold-search t))
@@ -162,10 +163,11 @@ Optional RESULT-CONTENT is the content of the results block to display in the al
               (let ((hours (string-to-number (match-string 1)))
                     (minutes (string-to-number (match-string 2)))
                     (seconds (string-to-number (match-string 3))))
-                (+ (* hours 3600) (* minutes 60) seconds)
-                (if (>= seconds alert-threshold)
-                    (ob-babel-alerts/block-finished-alert nil)
-                  ()))))
+                (setq total-seconds (+ (* hours 3600) (* minutes 60) seconds))
+                (when (>= total-seconds alert-threshold)
+                  (message "Block execution took %d seconds (threshold: %d)" 
+                           total-seconds alert-threshold)
+                  t))))
         (message "No results block found.")
         nil))))
 
@@ -243,9 +245,14 @@ Strips away the #+RESULTS:, #+BEGIN_*, #+END_*, :RESULTS:, :result:, and :END: m
             ;; Extract the content from the results block
             (setq result-content (ob-babel-alerts/extract-result-content results-start results-end))
             
-            (when alert-finish
-              (ob-babel-alerts/block-finished-alert result-content))
-            (ob-babel-alerts/notify-if-took-a-while ob-babel-alerts/long-running-threshold)))))))
+            ;; Only show one notification - either from explicit :alert or from long-running
+            (if alert-finish
+                ;; User explicitly requested alert
+                (ob-babel-alerts/block-finished-alert result-content)
+              ;; Check if it was a long-running block
+              (when (ob-babel-alerts/notify-if-took-a-while 
+                     ob-babel-alerts/long-running-threshold result-content)
+                (ob-babel-alerts/block-finished-alert result-content)))))))))
 
 
 (advice-add 'org-babel-insert-result :after #'ob-babel-alerts/alert-advice-after-org-babel-results)
