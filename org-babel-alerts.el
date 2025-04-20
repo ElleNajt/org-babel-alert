@@ -40,7 +40,7 @@ Special format specifiers:
   :type 'string
   :group 'org-babel-alerts)
 
-(defcustom org-babel-alerts/long-running-threshold 10
+(defcustom org-babel-alerts/long-running-threshold 60
   "Threshold in seconds for considering a block as long-running."
   :type 'integer
   :group 'org-babel-alerts)

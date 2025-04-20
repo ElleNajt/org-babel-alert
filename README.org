@@ -1,0 +1,18 @@
+#+title: Readme
+
+Emacs package to send customizable alerts when org babel cells finish.
+
+* Customization
+When a cell finishes, it sends customizable string to a user specified program. The string can contain the buffer name, the file, the line number, and the results of the cell.
+
+By default this is configured to use notify-send, but using an external programs you can send yourself a discord or slack message, a phone call, a postcard, etc.
+
+This is customized with `org-babel-alerts/notification-command.`
+
+Using `org-babel-alerts/long-running-threshold`, customize the amount of time that a cell runs for to automatically trigger a notification.
+
+Use the header argument `:alert yes` to get a notification when a cell finishes.
+
+* Fun fact:
+
+This was largely written using aider with claude 3.5 sonnet, after extracting an earlier version from ElleNajt/ob-python-extras.
